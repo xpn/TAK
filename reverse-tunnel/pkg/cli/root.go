@@ -13,10 +13,9 @@ var clientCertPath string
 var clientKeyPath string
 var username string
 
-
 var rootCmd = &cobra.Command{
 	Use:   "reverse-tunnel",
-	Short: "A reverse tunnel CLI tool",
+	Short: "A Teleport SSH tunnel tool for establishing reverse tunnels",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 
@@ -30,7 +29,7 @@ var rootCmd = &cobra.Command{
 		tunnel := sshreversetunnel.New(username, "@remote-auth-server", 80, clientCertPath, clientKeyPath)
 		err = tunnel.Connect(conn)
 		if err != nil {
-			fmt.Printf("Failed to establish SSH reverse tunnel: %v\n", err)
+			fmt.Printf("[!] Failed to establish SSH reverse tunnel: %v\n", err)
 			return
 		}
 		select {}

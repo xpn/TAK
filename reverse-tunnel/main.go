@@ -1,10 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"os"
-
-	"github.com/xpnsec/reverse-tunnel/pkg/cli"
+	"xpnsec.com/reverse-tunnel/v2/pkg/cli"
 )
 
 func main() {
