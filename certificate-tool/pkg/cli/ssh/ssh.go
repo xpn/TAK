@@ -84,9 +84,11 @@ var SSHCmd = &cobra.Command{
 				return
 			}
 
-			tlsPubPath := path.Join(outputDir, "host_ssh_signed.crt")
+			tlsPubPath := path.Join(outputDir, "host_tls_signed.crt")
+			sshPubPath := path.Join(outputDir, "host_ssh_signed.crt")
 
-			os.WriteFile(tlsPubPath, certs.SSH, 0644)
+			os.WriteFile(tlsPubPath, certs.TLS, 0644)
+			os.WriteFile(sshPubPath, certs.SSH, 0644)
 		}
 	},
 }
