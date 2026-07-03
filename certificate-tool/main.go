@@ -8,19 +8,8 @@ import (
 	"github.com/gravitational/teleport/api/utils/keys"
 	"golang.org/x/crypto/ssh"
 	"xpnsec.com/certificate-tool/v2/pkg/cert"
+	"xpnsec.com/certificate-tool/v2/pkg/cli"
 )
-
-func generateWindowsCert() {
-	cert, key, err := cert.GenerateWindowsCSR("Administrator", "TELEPORT-WINCLI")
-
-	if err != nil {
-		panic(err)
-	}
-
-	// Write the CSR and key to files
-	os.WriteFile("/tmp/administrator.csr", cert, 0644)
-	os.WriteFile("/tmp/administrator.key", key, 0600)
-}
 
 func generateSSHKeys() {
 	privateKey, err := cert.GenerateSSHKey()
@@ -89,18 +78,20 @@ func generateAppCertFromAuthServer() {
 
 func main() {
 
-	switch os.Args[1] {
-	case "ssh":
-		generateSSHKeys()
-	case "windows":
-		generateWindowsCert()
-	case "database":
-		generateDatabaseCert()
-	case "app":
-		generateAppCert()
-	case "user-app":
-		generateAppCertFromAuthServer()
-	default:
-		panic("unknown command: " + os.Args[1])
-	}
+	cli.Execute()
+
+	// switch os.Args[1] {
+	// case "ssh":
+	// 	generateSSHKeys()
+	// case "windows":
+	// 	generateWindowsCert()
+	// case "database":
+	// 	generateDatabaseCert()
+	// case "app":
+	// 	generateAppCert()
+	// case "user-app":
+	// 	generateAppCertFromAuthServer()
+	// default:
+	// 	panic("unknown command: " + os.Args[1])
+	// }
 }

