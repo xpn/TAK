@@ -15,6 +15,15 @@ type AuthServerClient struct {
 	client *authserver.AuthServiceClient
 }
 
+type HostCerts struct {
+	SSH []byte
+	TLS []byte
+}
+
+type WindowsHostCerts struct {
+	Cert []byte
+}
+
 func NewClient(certPath, keyPath, target string) (*AuthServerClient, error) {
 	clientCertificate, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
@@ -40,11 +49,6 @@ func NewClient(certPath, keyPath, target string) (*AuthServerClient, error) {
 
 }
 
-type HostCerts struct {
-	SSH []byte
-	TLS []byte
-}
-
 func (c *AuthServerClient) GenerateSSHHostCertificate(ctx context.Context, nodeName string, publicKey []byte, publicTLSKey []byte) (*HostCerts, error) {
 	certs, err := (*c.client).GenerateHostCerts(ctx, &authserver.HostCertsRequest{
 		NodeName:     nodeName,
@@ -67,5 +71,19 @@ func (c *AuthServerClient) GenerateSSHHostCertificate(ctx context.Context, nodeN
 	return &HostCerts{
 		SSH: sshCert,
 		TLS: tlsCert,
+	}, nil
+}
+
+func (c *AuthServerClient) GenerateWindowsHostCertificate(ctx context.Context, csr []byte) (*WindowsHostCerts, error) {
+
+	certs, err := (*c.client).GenerateWindowsDesktopCert(ctx, &authserver.WindowsDesktopCertRequest{
+		CSR: csr,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate windows host certificate: %w", err)
+	}
+
+	return &WindowsHostCerts{
+		Cert: certs.Cert,
 	}, nil
 }
