@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	authserver "xpnsec.com/certificate-tool/v2/pkg/api"
 	"xpnsec.com/certificate-tool/v2/pkg/cert"
+	flags "xpnsec.com/certificate-tool/v2/pkg/cli/lib"
 )
 
 var outputDir string
@@ -16,7 +17,8 @@ var username string
 var hostname string
 var clientCertPath string
 var clientKeyPath string
-var proxy string
+var clusterName string
+var proxyAddress flags.HostPort
 
 var WindowsCmd = &cobra.Command{
 	Use:   "windows",
@@ -45,8 +47,8 @@ var WindowsCmd = &cobra.Command{
 		fmt.Printf("[*] Certificates generated:\n\t%s\n\t%s\n", csrPath, keyPath)
 
 		// If Client Cert and Client Key provided, we actually request the certificate is signed!
-		if clientCertPath != "" && clientKeyPath != "" {
-			client, err := authserver.NewClient(clientCertPath, clientKeyPath, "10.1.10.1:8443")
+		if clientCertPath != "" && clientKeyPath != "" && proxyAddress.String() != "" && clusterName != "" {
+			client, err := authserver.NewClient(clientCertPath, clientKeyPath, proxyAddress.String(), clusterName)
 			if err != nil {
 				fmt.Printf("[!] Error creating auth server client: %v\n", err)
 				return
@@ -60,6 +62,8 @@ var WindowsCmd = &cobra.Command{
 			tlsPubPath := path.Join(outputDir, "windows_tls_signed.crt")
 
 			os.WriteFile(tlsPubPath, certs.Cert, 0644)
+
+			fmt.Printf("[*] Signed certificate written to: %s\n", tlsPubPath)
 		}
 	},
 }
@@ -70,6 +74,8 @@ func init() {
 	WindowsCmd.Flags().StringVarP(&hostname, "hostname", "t", "", "Hostname to generate the certificate for")
 	WindowsCmd.Flags().StringVarP(&clientCertPath, "client-cert", "c", "", "Existing Client Cert (makes gRPC call if included)")
 	WindowsCmd.Flags().StringVarP(&clientKeyPath, "client-key", "k", "", "Existing Client Key (makes gRPC call if included)")
+	WindowsCmd.Flags().StringVarP(&clusterName, "cluster-name", "l", "", "Cluster name to use for certificate")
+	WindowsCmd.Flags().VarP(&proxyAddress, "proxy-address", "a", "Proxy address:port to use for certificate")
 
 	WindowsCmd.MarkFlagRequired("output-dir")
 	WindowsCmd.MarkFlagRequired("username")

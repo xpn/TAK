@@ -16,6 +16,12 @@ type AuthServerClient struct {
 	client *authserver.AuthServiceClient
 }
 
+type NodeInfo struct {
+	Name     string
+	IP       string
+	Hostname string
+}
+
 func NewClient(certPath, keyPath, target string) (*AuthServerClient, error) {
 	clientCertificate, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
@@ -82,15 +88,24 @@ func (c *AuthServerClient) GetNode(ctx context.Context, nodeName string) (*types
 	return result, nil
 }
 
-func (c *AuthServerClient) GetAllNodes(ctx context.Context) error {
+func (c *AuthServerClient) GetAllNodes(ctx context.Context) ([]NodeInfo, error) {
 	result, err := (*c.client).ListUnifiedResources(ctx, &authserver.ListUnifiedResourcesRequest{
 		Kinds: []string{"node"},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to get nodes: %w", err)
+		return nil, fmt.Errorf("failed to get nodes: %w", err)
 	}
-	fmt.Println(result)
-	return nil
+
+	nodes := make([]NodeInfo, 0, len(result.Resources))
+	for _, item := range result.Resources {
+		nodes = append(nodes, NodeInfo{
+			Name:     item.GetNode().GetName(),
+			IP:       item.GetNode().Spec.Addr,
+			Hostname: item.GetNode().Spec.Hostname,
+		})
+	}
+
+	return nodes, nil
 }
 
 func (c *AuthServerClient) UpdateNode(ctx context.Context, updated *types.ServerV2) error {

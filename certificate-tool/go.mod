@@ -4,6 +4,7 @@ go 1.25.6
 
 require (
 	github.com/cosmos/gogoproto v1.7.2
+	github.com/fatih/color v1.18.0
 	github.com/gravitational/teleport/api v0.0.0-20260202174212-0db04832f941
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/crypto v0.50.0
@@ -24,6 +25,8 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/mattermost/xml-roundtrip-validator v0.1.0 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/russellhaering/gosaml2 v0.10.0 // indirect
 	github.com/russellhaering/goxmldsig v1.5.0 // indirect

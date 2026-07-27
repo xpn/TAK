@@ -18,6 +18,9 @@ import (
 var outputDir string
 var clientKeyPath, clientCertPath string
 var nodeName string
+var clusterName string
+var proxyAddress string
+var nodeId string
 
 var SSHCmd = &cobra.Command{
 	Use:   "ssh",
@@ -73,12 +76,12 @@ var SSHCmd = &cobra.Command{
 
 		// If Client Cert and Client Key provided, we actually request the certificate is signed!
 		if clientCertPath != "" && clientKeyPath != "" {
-			client, err := authserver.NewClient(clientCertPath, clientKeyPath, "10.1.10.1:8443")
+			client, err := authserver.NewClient(clientCertPath, clientKeyPath, proxyAddress, clusterName)
 			if err != nil {
 				fmt.Printf("[!] Error creating auth server client: %v\n", err)
 				return
 			}
-			certs, err := client.GenerateSSHHostCertificate(context.Background(), nodeName, publicSSH, tlsPub)
+			certs, err := client.GenerateSSHHostCertificate(context.Background(), nodeName, nodeId, publicSSH, tlsPub)
 			if err != nil {
 				fmt.Printf("[!] Error generating host certificate: %v\n", err)
 				return
@@ -98,5 +101,9 @@ func init() {
 	SSHCmd.Flags().StringVarP(&clientCertPath, "client-cert", "c", "", "Existing Client Cert (makes gRPC call if included)")
 	SSHCmd.Flags().StringVarP(&clientKeyPath, "client-key", "k", "", "Existing Client Key (makes gRPC call if included)")
 	SSHCmd.Flags().StringVarP(&nodeName, "node-name", "n", "", "Node name to use for certificate")
+	SSHCmd.Flags().StringVarP(&clusterName, "cluster-name", "l", "", "Cluster name to use for certificate")
+	SSHCmd.Flags().StringVarP(&proxyAddress, "proxy-address", "a", "", "Proxy address:port to use for certificate")
+	SSHCmd.Flags().StringVarP(&nodeId, "node-id", "i", "", "Node ID to use for certificate")
+
 	SSHCmd.MarkFlagRequired("output-dir")
 }

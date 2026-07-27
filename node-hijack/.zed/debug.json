@@ -1,0 +1,22 @@
+[
+  {
+    "label": "Go (Delve)",
+    "adapter": "Delve",
+    "program": "$ZED_FILE",
+    "request": "launch",
+    "mode": "debug"
+  },
+  {
+    "label": "Run",
+    "adapter": "Delve",
+    "request": "launch",
+    "mode": "debug",
+    "env": {
+      "GOPATH": "/opt/go"
+    },
+    // For Delve, the program can be a package name
+    "program": "./main.go",
+    "args": ["mitm", "-c", "/tmp/hijack-certs/host_tls_signed.crt", "-k", "/tmp/hijack-certs/host.key", "-n", "9755ca7d-8c77-40da-a7e1-cae6dd66ed29"],
+    // "buildFlags": [],
+  }
+]
