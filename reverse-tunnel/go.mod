@@ -7,7 +7,10 @@ require (
 	github.com/gravitational/teleport/api v0.0.0-20260116142645-4b284116367d
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/crypto v0.47.0
+	xpnsec.com/shared/v2 v2.0.0
 )
+
+replace xpnsec.com/shared/v2 => ../shared
 
 require (
 	github.com/beevik/etree v1.5.0 // indirect

@@ -3,6 +3,7 @@ package sessions
 import (
 	"context"
 	"crypto/tls"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"time"
@@ -26,14 +27,14 @@ type SessionInfo struct {
 	Hostname  string        `json:"hostname"`
 }
 
-func NewClient(certPath, keyPath, target string) (*SessionClient, error) {
+func NewClient(certPath, keyPath, target, clusterName string) (*SessionClient, error) {
 	clientCertificate, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load client certificate: %w", err)
 	}
 
 	creds := credentials.NewTLS(&tls.Config{
-		NextProtos:         []string{"teleport-auth@6578616d706c652e636f6d.teleport.cluster.local", "h2"},
+		NextProtos:         []string{"teleport-auth@" + hex.EncodeToString([]byte(clusterName)) + ".teleport.cluster.local", "h2"},
 		Certificates:       []tls.Certificate{clientCertificate},
 		InsecureSkipVerify: true,
 	})

@@ -9,16 +9,15 @@ import (
 	"github.com/spf13/cobra"
 	authserver "xpnsec.com/certificate-tool/v2/pkg/api"
 	"xpnsec.com/certificate-tool/v2/pkg/cert"
+	"xpnsec.com/shared/v2/pkg/connection"
 )
 
 var outputDir string
-var clientKeyPath, clientCertPath string
 var nodeName string
 var username string
 var appName string
 var publicAddress string
-var proxyAddress string
-var clusterName string
+var connectionOptions connection.Options
 
 var AppCmd = &cobra.Command{
 	Use:   "app",
@@ -47,8 +46,8 @@ var AppCmd = &cobra.Command{
 		fmt.Printf("[*] Keys generated:\n\t%s\n\t%s\n", pubPath, keyPath)
 
 		// If Client Cert and Client Key provided, we actually request the certificate is signed!
-		if clientCertPath != "" && clientKeyPath != "" {
-			client, err := authserver.NewClient(clientCertPath, clientKeyPath, proxyAddress, clusterName)
+		if cmd.Flags().Changed("client-cert") {
+			client, err := authserver.NewClient(connectionOptions.ClientCert, connectionOptions.ClientKey, connectionOptions.Proxy, connectionOptions.ClusterName)
 			if err != nil {
 				fmt.Printf("[!] Error creating auth server client: %v\n", err)
 				return
@@ -68,13 +67,13 @@ var AppCmd = &cobra.Command{
 
 func init() {
 	AppCmd.Flags().StringVarP(&outputDir, "output-dir", "o", "", "Directory to save generated certificates")
-	AppCmd.Flags().StringVarP(&clientCertPath, "client-cert", "c", "", "Existing Client Cert (makes gRPC call if included)")
-	AppCmd.Flags().StringVarP(&clientKeyPath, "client-key", "k", "", "Existing Client Key (makes gRPC call if included)")
 	AppCmd.Flags().StringVarP(&username, "username", "u", "", "Username to use for certificate")
 	AppCmd.Flags().StringVarP(&appName, "app-name", "n", "", "App name to use for certificate")
 	AppCmd.Flags().StringVarP(&publicAddress, "public-address", "a", "", "Public address to use for certificate")
-	AppCmd.Flags().StringVarP(&proxyAddress, "proxy-address", "p", "", "Proxy address:port to use for certificate")
-	AppCmd.Flags().StringVarP(&clusterName, "cluster-name", "l", "", "Cluster name to use for certificate")
+	connectionOptions.AddProxyFlag(AppCmd.Flags())
+	connectionOptions.AddClientCredentialFlags(AppCmd.Flags())
+	connectionOptions.AddClusterNameFlag(AppCmd.Flags())
+	AppCmd.MarkFlagsRequiredTogether("client-cert", "client-key", "proxy", "cluster-name", "username", "app-name", "public-address")
 
 	AppCmd.MarkFlagRequired("output-dir")
 }

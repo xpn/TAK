@@ -13,14 +13,13 @@ import (
 	"golang.org/x/crypto/ssh"
 	authserver "xpnsec.com/certificate-tool/v2/pkg/api"
 	"xpnsec.com/certificate-tool/v2/pkg/cert"
+	"xpnsec.com/shared/v2/pkg/connection"
 )
 
 var outputDir string
-var clientKeyPath, clientCertPath string
 var nodeName string
-var clusterName string
-var proxyAddress string
 var nodeId string
+var connectionOptions connection.Options
 
 var SSHCmd = &cobra.Command{
 	Use:   "ssh",
@@ -75,8 +74,8 @@ var SSHCmd = &cobra.Command{
 		fmt.Printf("[*] Certificates generated:\n\t%s\n\t%s\n\t%s\n", publicSSHPath, privPEMPath, tlsPubPath)
 
 		// If Client Cert and Client Key provided, we actually request the certificate is signed!
-		if clientCertPath != "" && clientKeyPath != "" {
-			client, err := authserver.NewClient(clientCertPath, clientKeyPath, proxyAddress, clusterName)
+		if cmd.Flags().Changed("client-cert") {
+			client, err := authserver.NewClient(connectionOptions.ClientCert, connectionOptions.ClientKey, connectionOptions.Proxy, connectionOptions.ClusterName)
 			if err != nil {
 				fmt.Printf("[!] Error creating auth server client: %v\n", err)
 				return
@@ -98,12 +97,12 @@ var SSHCmd = &cobra.Command{
 
 func init() {
 	SSHCmd.Flags().StringVarP(&outputDir, "output-dir", "o", "", "Directory to save generated certificates")
-	SSHCmd.Flags().StringVarP(&clientCertPath, "client-cert", "c", "", "Existing Client Cert (makes gRPC call if included)")
-	SSHCmd.Flags().StringVarP(&clientKeyPath, "client-key", "k", "", "Existing Client Key (makes gRPC call if included)")
 	SSHCmd.Flags().StringVarP(&nodeName, "node-name", "n", "", "Node name to use for certificate")
-	SSHCmd.Flags().StringVarP(&clusterName, "cluster-name", "l", "", "Cluster name to use for certificate")
-	SSHCmd.Flags().StringVarP(&proxyAddress, "proxy-address", "a", "", "Proxy address:port to use for certificate")
 	SSHCmd.Flags().StringVarP(&nodeId, "node-id", "i", "", "Node ID to use for certificate")
+	connectionOptions.AddProxyFlag(SSHCmd.Flags())
+	connectionOptions.AddClientCredentialFlags(SSHCmd.Flags())
+	connectionOptions.AddClusterNameFlag(SSHCmd.Flags())
+	SSHCmd.MarkFlagsRequiredTogether("client-cert", "client-key", "proxy", "cluster-name", "node-name", "node-id")
 
 	SSHCmd.MarkFlagRequired("output-dir")
 }

@@ -5,14 +5,13 @@ import (
 
 	"github.com/spf13/cobra"
 	"xpnsec.com/log-viewer/v2/pkg/sessions"
+	"xpnsec.com/shared/v2/pkg/connection"
 
 	"xpnsec.com/log-viewer/v2/pkg/cli/list"
 )
 
-var proxyHost string
-var clientCertPath string
-var clientKeyPath string
 var sessionID string
+var connectionOptions connection.Options
 
 var rootCmd = &cobra.Command{
 	Use:   "log-viewer",
@@ -20,7 +19,7 @@ var rootCmd = &cobra.Command{
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		client, err := sessions.NewClient(clientCertPath, clientKeyPath, proxyHost)
+		client, err := sessions.NewClient(connectionOptions.ClientCert, connectionOptions.ClientKey, connectionOptions.Proxy, connectionOptions.ClusterName)
 		if err != nil {
 			fmt.Printf("Failed to create client: %v\n", err)
 			return
@@ -38,14 +37,15 @@ func Execute() {
 	listCmd := list.ListCmd
 	rootCmd.AddCommand(listCmd)
 
-	rootCmd.Flags().StringVarP(&proxyHost, "proxy", "x", "", "Proxy host")
-	rootCmd.Flags().StringVarP(&clientCertPath, "cert", "c", "", "Client certificate path")
-	rootCmd.Flags().StringVarP(&clientKeyPath, "key", "k", "", "Client key path")
 	rootCmd.Flags().StringVarP(&sessionID, "session-id", "i", "", "Session ID")
+	connectionOptions.AddProxyFlag(rootCmd.Flags())
+	connectionOptions.AddClientCredentialFlags(rootCmd.Flags())
+	connectionOptions.AddClusterNameFlag(rootCmd.Flags())
 
-	rootCmd.MarkFlagRequired("proxy-host")
+	rootCmd.MarkFlagRequired("proxy")
 	rootCmd.MarkFlagRequired("client-cert")
 	rootCmd.MarkFlagRequired("client-key")
+	rootCmd.MarkFlagRequired("cluster-name")
 	rootCmd.MarkFlagRequired("session-id")
 
 	cobra.CheckErr(rootCmd.Execute())

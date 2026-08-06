@@ -9,14 +9,12 @@ import (
 	"github.com/spf13/cobra"
 	authserver "xpnsec.com/certificate-tool/v2/pkg/api"
 	"xpnsec.com/certificate-tool/v2/pkg/cert"
+	"xpnsec.com/shared/v2/pkg/connection"
 )
 
 var outputDir string
 var username string
-var clientCertPath string
-var clientKeyPath string
-var clusterName string
-var proxyAddress string
+var connectionOptions connection.Options
 
 var DatabaseCmd = &cobra.Command{
 	Use:   "database",
@@ -45,8 +43,8 @@ var DatabaseCmd = &cobra.Command{
 		fmt.Printf("[*] Certificates generated:\n\t%s\n\t%s\n", csrPath, keyPath)
 
 		// If Client Cert and Client Key provided, we actually request the certificate is signed!
-		if clientCertPath != "" && clientKeyPath != "" {
-			client, err := authserver.NewClient(clientCertPath, clientKeyPath, proxyAddress, clusterName)
+		if cmd.Flags().Changed("client-cert") {
+			client, err := authserver.NewClient(connectionOptions.ClientCert, connectionOptions.ClientKey, connectionOptions.Proxy, connectionOptions.ClusterName)
 			if err != nil {
 				fmt.Printf("[!] Error creating auth server client: %v\n", err)
 				return
@@ -67,10 +65,10 @@ var DatabaseCmd = &cobra.Command{
 func init() {
 	DatabaseCmd.Flags().StringVarP(&outputDir, "output-dir", "o", "", "Directory to save generated certificates")
 	DatabaseCmd.Flags().StringVarP(&username, "username", "u", "", "Username to generate the certificate for")
-	DatabaseCmd.Flags().StringVarP(&clientCertPath, "client-cert", "c", "", "Existing Client Cert (makes gRPC call if included)")
-	DatabaseCmd.Flags().StringVarP(&clientKeyPath, "client-key", "k", "", "Existing Client Key (makes gRPC call if included)")
-	DatabaseCmd.Flags().StringVarP(&clusterName, "cluster-name", "l", "", "Cluster name to use for certificate")
-	DatabaseCmd.Flags().StringVarP(&proxyAddress, "proxy-address", "a", "", "Proxy address:port to use for certificate")
+	connectionOptions.AddProxyFlag(DatabaseCmd.Flags())
+	connectionOptions.AddClientCredentialFlags(DatabaseCmd.Flags())
+	connectionOptions.AddClusterNameFlag(DatabaseCmd.Flags())
+	DatabaseCmd.MarkFlagsRequiredTogether("client-cert", "client-key", "proxy", "cluster-name")
 
 	DatabaseCmd.MarkFlagRequired("output-dir")
 	DatabaseCmd.MarkFlagRequired("username")

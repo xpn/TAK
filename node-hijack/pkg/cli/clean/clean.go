@@ -6,25 +6,18 @@ import (
 
 	"github.com/spf13/cobra"
 	api "xpnsec.com/node-hijack/v2/pkg/api"
+	"xpnsec.com/shared/v2/pkg/connection"
 )
 
-var outputDir string
-var username string
-var hostname string
-var clientCertPath string
-var clientKeyPath string
-var proxy string
-
 var name string
-var clientCert string
-var clientKey string
+var connectionOptions connection.Options
 
 var CleanCmd = &cobra.Command{
 	Use:   "clean",
 	Short: "Clean up all hijacked entries",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		client, err := api.NewClient(clientCert, clientKey, "10.1.10.1:8443")
+		client, err := api.NewClient(connectionOptions.ClientCert, connectionOptions.ClientKey, connectionOptions.Proxy, connectionOptions.ClusterName)
 		if err != nil {
 			panic(err)
 		}
@@ -42,7 +35,12 @@ var CleanCmd = &cobra.Command{
 
 func init() {
 	CleanCmd.Flags().StringVarP(&name, "name", "n", "", "Node name to clean")
-	CleanCmd.Flags().StringVarP(&clientCert, "client-cert", "c", "", "Existing Node Cert")
-	CleanCmd.Flags().StringVarP(&clientKey, "client-key", "k", "", "Existing Node Key")
-
+	connectionOptions.AddProxyFlag(CleanCmd.Flags())
+	connectionOptions.AddClientCredentialFlags(CleanCmd.Flags())
+	connectionOptions.AddClusterNameFlag(CleanCmd.Flags())
+	CleanCmd.MarkFlagRequired("name")
+	CleanCmd.MarkFlagRequired("proxy")
+	CleanCmd.MarkFlagRequired("client-cert")
+	CleanCmd.MarkFlagRequired("client-key")
+	CleanCmd.MarkFlagRequired("cluster-name")
 }

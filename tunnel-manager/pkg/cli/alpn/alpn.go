@@ -7,15 +7,14 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"xpnsec.com/shared/v2/pkg/connection"
 	"xpnsec.com/teleport-tunnel-manager/v2/pkg/dialer/alpn"
 	"xpnsec.com/teleport-tunnel-manager/v2/pkg/proxy"
 )
 
 var alpnProtocols string
-var clientCertPath string
-var clientKeyPath string
-var proxyAddr string
 var bindAddr string
+var connectionOptions connection.Options
 
 var AlpnCmd = &cobra.Command{
 	Use:   "alpn",
@@ -24,8 +23,6 @@ var AlpnCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		alpnNames := strings.Split(alpnProtocols, ",")
-		certPath := clientCertPath
-		keyPath := clientKeyPath
 		bindHost, bindPort, err := net.SplitHostPort(bindAddr)
 		if err != nil {
 			return err
@@ -39,11 +36,11 @@ var AlpnCmd = &cobra.Command{
 		proxy.TCPServerToConnProxy(bindHost, bindPortNum, func() (net.Conn, error) {
 			alpnDialer := alpn.New(alpn.ALPNConfig{
 				NextProtos:      alpnNames,
-				CertificatePath: certPath,
-				PrivateKeyPath:  keyPath,
+				CertificatePath: connectionOptions.ClientCert,
+				PrivateKeyPath:  connectionOptions.ClientKey,
 			})
 
-			alpnConn, err := alpnDialer.Dial(context.Background(), proxyAddr)
+			alpnConn, err := alpnDialer.Dial(context.Background(), connectionOptions.Proxy)
 			if err != nil {
 				return nil, err
 			}
@@ -56,14 +53,12 @@ var AlpnCmd = &cobra.Command{
 
 func init() {
 	AlpnCmd.Flags().StringVarP(&alpnProtocols, "protocols", "p", "", "Comma-separated list of ALPN protocols")
-	AlpnCmd.Flags().StringVarP(&clientCertPath, "client-cert", "c", "", "Path to client certificate")
-	AlpnCmd.Flags().StringVarP(&clientKeyPath, "client-key", "k", "", "Path to client key")
-	AlpnCmd.Flags().StringVarP(&proxyAddr, "proxy", "x", "", "Proxy address (host:port)")
 	AlpnCmd.Flags().StringVarP(&bindAddr, "bind", "b", "", "Bind address (host:port)")
+	connectionOptions.AddProxyFlag(AlpnCmd.Flags())
+	connectionOptions.AddClientCredentialFlags(AlpnCmd.Flags())
+	AlpnCmd.MarkFlagsRequiredTogether("client-cert", "client-key")
 
 	AlpnCmd.MarkFlagRequired("protocols")
-	AlpnCmd.MarkFlagRequired("client-cert")
-	AlpnCmd.MarkFlagRequired("client-key")
 	AlpnCmd.MarkFlagRequired("proxy")
 	AlpnCmd.MarkFlagRequired("bind")
 }

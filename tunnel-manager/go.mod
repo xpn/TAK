@@ -9,7 +9,10 @@ require (
 	github.com/spf13/cobra v1.10.2
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
+	xpnsec.com/shared/v2 v2.0.0
 )
+
+replace xpnsec.com/shared/v2 => ../shared
 
 require (
 	github.com/beevik/etree v1.5.0 // indirect

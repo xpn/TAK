@@ -3,6 +3,7 @@ package authserver
 import (
 	"context"
 	"crypto/tls"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/gravitational/teleport/api/types"
@@ -13,7 +14,8 @@ import (
 )
 
 type AuthServerClient struct {
-	client *authserver.AuthServiceClient
+	client      *authserver.AuthServiceClient
+	clusterName string
 }
 
 type NodeInfo struct {
@@ -22,14 +24,14 @@ type NodeInfo struct {
 	Hostname string
 }
 
-func NewClient(certPath, keyPath, target string) (*AuthServerClient, error) {
+func NewClient(certPath, keyPath, target, clusterName string) (*AuthServerClient, error) {
 	clientCertificate, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load client certificate: %w", err)
 	}
 
 	creds := credentials.NewTLS(&tls.Config{
-		NextProtos:         []string{"teleport-auth@6578616d706c652e636f6d.teleport.cluster.local", "h2"},
+		NextProtos:         []string{"teleport-auth@" + hex.EncodeToString([]byte(clusterName)) + ".teleport.cluster.local", "h2"},
 		Certificates:       []tls.Certificate{clientCertificate},
 		InsecureSkipVerify: true,
 	})
@@ -42,7 +44,8 @@ func NewClient(certPath, keyPath, target string) (*AuthServerClient, error) {
 	client := authserver.NewAuthServiceClient(conn)
 
 	return &AuthServerClient{
-		client: &client,
+		client:      &client,
+		clusterName: clusterName,
 	}, nil
 
 }
@@ -52,16 +55,16 @@ type HostCerts struct {
 	TLS []byte
 }
 
-func (c *AuthServerClient) GenerateSSHHostCertificate(ctx context.Context, nodeName string, publicKey []byte, publicTLSKey []byte) (*HostCerts, error) {
+func (c *AuthServerClient) GenerateSSHHostCertificate(ctx context.Context, nodeName string, hostId string, publicKey []byte, publicTLSKey []byte) (*HostCerts, error) {
 	certs, err := (*c.client).GenerateHostCerts(ctx, &authserver.HostCertsRequest{
 		NodeName:     nodeName,
-		HostID:       "b14086e9-0294-408d-9b76-0405f2409929",
+		HostID:       hostId,
 		Role:         "Node",
 		PublicSSHKey: publicKey,
 		PublicTLSKey: publicTLSKey,
 		AdditionalPrincipals: []string{
 			nodeName,
-			"b14086e9-0294-408d-9b76-0405f2409929.example.com",
+			hostId + "." + c.clusterName,
 		},
 	})
 	if err != nil {

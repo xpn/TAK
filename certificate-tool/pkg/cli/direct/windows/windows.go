@@ -5,20 +5,18 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/spf13/cobra"
 	authserver "xpnsec.com/certificate-tool/v2/pkg/api"
 	"xpnsec.com/certificate-tool/v2/pkg/cert"
-	flags "xpnsec.com/certificate-tool/v2/pkg/cli/lib"
+	"xpnsec.com/shared/v2/pkg/connection"
 )
 
 var outputDir string
 var username string
 var hostname string
-var clientCertPath string
-var clientKeyPath string
-var clusterName string
-var proxyAddress flags.HostPort
+var connectionOptions connection.Options
 
 var WindowsCmd = &cobra.Command{
 	Use:   "windows",
@@ -47,8 +45,8 @@ var WindowsCmd = &cobra.Command{
 		fmt.Printf("[*] Certificates generated:\n\t%s\n\t%s\n", csrPath, keyPath)
 
 		// If Client Cert and Client Key provided, we actually request the certificate is signed!
-		if clientCertPath != "" && clientKeyPath != "" && proxyAddress.String() != "" && clusterName != "" {
-			client, err := authserver.NewClient(clientCertPath, clientKeyPath, proxyAddress.String(), clusterName)
+		if cmd.Flags().Changed("client-cert") {
+			client, err := authserver.NewClient(connectionOptions.ClientCert, connectionOptions.ClientKey, connectionOptions.Proxy, connectionOptions.ClusterName)
 			if err != nil {
 				fmt.Printf("[!] Error creating auth server client: %v\n", err)
 				return
@@ -63,7 +61,11 @@ var WindowsCmd = &cobra.Command{
 
 			os.WriteFile(tlsPubPath, certs.Cert, 0644)
 
-			fmt.Printf("[*] Signed certificate written to: %s\n", tlsPubPath)
+			fmt.Printf("[*] Signed certificate saved to %s\n", tlsPubPath)
+
+			fmt.Println("[?] To convert the certificate to DER format, use the following command:")
+			fmt.Printf("  openssl x509 -in %s -outform DER -out %s\n", tlsPubPath, strings.TrimSuffix(tlsPubPath, ".crt")+".der")
+
 		}
 	},
 }
@@ -72,10 +74,10 @@ func init() {
 	WindowsCmd.Flags().StringVarP(&outputDir, "output-dir", "o", "", "Directory to save generated certificates")
 	WindowsCmd.Flags().StringVarP(&username, "username", "u", "", "Username to generate the certificate for")
 	WindowsCmd.Flags().StringVarP(&hostname, "hostname", "t", "", "Hostname to generate the certificate for")
-	WindowsCmd.Flags().StringVarP(&clientCertPath, "client-cert", "c", "", "Existing Client Cert (makes gRPC call if included)")
-	WindowsCmd.Flags().StringVarP(&clientKeyPath, "client-key", "k", "", "Existing Client Key (makes gRPC call if included)")
-	WindowsCmd.Flags().StringVarP(&clusterName, "cluster-name", "l", "", "Cluster name to use for certificate")
-	WindowsCmd.Flags().VarP(&proxyAddress, "proxy-address", "a", "Proxy address:port to use for certificate")
+	connectionOptions.AddProxyFlag(WindowsCmd.Flags())
+	connectionOptions.AddClientCredentialFlags(WindowsCmd.Flags())
+	connectionOptions.AddClusterNameFlag(WindowsCmd.Flags())
+	WindowsCmd.MarkFlagsRequiredTogether("client-cert", "client-key", "proxy", "cluster-name")
 
 	WindowsCmd.MarkFlagRequired("output-dir")
 	WindowsCmd.MarkFlagRequired("username")

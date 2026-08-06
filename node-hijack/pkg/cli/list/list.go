@@ -6,24 +6,17 @@ import (
 
 	"github.com/spf13/cobra"
 	api "xpnsec.com/node-hijack/v2/pkg/api"
+	"xpnsec.com/shared/v2/pkg/connection"
 )
 
-var outputDir string
-var username string
-var hostname string
-var clientCertPath string
-var clientKeyPath string
-var proxy string
-
-var clientCert string
-var clientKey string
+var connectionOptions connection.Options
 
 var ListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all nodes",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		client, err := api.NewClient(clientCert, clientKey, "10.1.10.1:8443")
+		client, err := api.NewClient(connectionOptions.ClientCert, connectionOptions.ClientKey, connectionOptions.Proxy, connectionOptions.ClusterName)
 		if err != nil {
 			panic(err)
 		}
@@ -40,6 +33,11 @@ var ListCmd = &cobra.Command{
 }
 
 func init() {
-	ListCmd.Flags().StringVarP(&clientCert, "client-cert", "c", "", "Existing Node Cert")
-	ListCmd.Flags().StringVarP(&clientKey, "client-key", "k", "", "Existing Node Key")
+	connectionOptions.AddProxyFlag(ListCmd.Flags())
+	connectionOptions.AddClientCredentialFlags(ListCmd.Flags())
+	connectionOptions.AddClusterNameFlag(ListCmd.Flags())
+	ListCmd.MarkFlagRequired("proxy")
+	ListCmd.MarkFlagRequired("client-cert")
+	ListCmd.MarkFlagRequired("client-key")
+	ListCmd.MarkFlagRequired("cluster-name")
 }

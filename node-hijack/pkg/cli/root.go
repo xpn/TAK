@@ -8,12 +8,6 @@ import (
 	mitm "xpnsec.com/node-hijack/v2/pkg/cli/mitm"
 )
 
-var proxyHost string
-var clientCertPath string
-var clientKeyPath string
-var username string
-var connectHost string
-
 var rootCmd = &cobra.Command{
 	Use:   "node-hijack",
 	Short: "A tool designed to make Teleport Node hijacking easier",

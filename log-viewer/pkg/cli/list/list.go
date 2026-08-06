@@ -5,16 +5,17 @@ import (
 
 	"github.com/spf13/cobra"
 	"xpnsec.com/log-viewer/v2/pkg/sessions"
+	"xpnsec.com/shared/v2/pkg/connection"
 )
 
-var clientCertPath, clientKeyPath, proxyHost string
 var sessionInfo []sessions.SessionInfo
+var connectionOptions connection.Options
 
 var ListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all recorded sessions",
 	Run: func(cmd *cobra.Command, args []string) {
-		client, err := sessions.NewClient(clientCertPath, clientKeyPath, proxyHost)
+		client, err := sessions.NewClient(connectionOptions.ClientCert, connectionOptions.ClientKey, connectionOptions.Proxy, connectionOptions.ClusterName)
 		if err != nil {
 			fmt.Printf("Failed to create client: %v\n", err)
 			return
@@ -34,12 +35,13 @@ var ListCmd = &cobra.Command{
 }
 
 func init() {
-	ListCmd.Flags().StringVar(&clientCertPath, "cert", "", "Path to client certificate")
-	ListCmd.Flags().StringVar(&clientKeyPath, "key", "", "Path to client key")
-	ListCmd.Flags().StringVar(&proxyHost, "proxy", "", "Proxy host")
+	connectionOptions.AddProxyFlag(ListCmd.Flags())
+	connectionOptions.AddClientCredentialFlags(ListCmd.Flags())
+	connectionOptions.AddClusterNameFlag(ListCmd.Flags())
 
-	cobra.MarkFlagRequired(ListCmd.Flags(), "cert")
-	cobra.MarkFlagRequired(ListCmd.Flags(), "key")
+	cobra.MarkFlagRequired(ListCmd.Flags(), "client-cert")
+	cobra.MarkFlagRequired(ListCmd.Flags(), "client-key")
 	cobra.MarkFlagRequired(ListCmd.Flags(), "proxy")
+	cobra.MarkFlagRequired(ListCmd.Flags(), "cluster-name")
 
 }

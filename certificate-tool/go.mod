@@ -10,7 +10,10 @@ require (
 	golang.org/x/crypto v0.50.0
 	google.golang.org/grpc v1.82.0
 	google.golang.org/protobuf v1.36.11
+	xpnsec.com/shared/v2 v2.0.0
 )
+
+replace xpnsec.com/shared/v2 => ../shared
 
 require (
 	github.com/beevik/etree v1.5.0 // indirect

